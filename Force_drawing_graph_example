@@ -1,0 +1,42 @@
+
+# we'll use qgraph to draw the graphics, and maybe data.table to rename columns
+# stats is for the original distance matrix. I think it comes w/ base R
+
+library(qgraph)
+library(data.table)
+library(stats)
+
+# first, compute the distance matrix for all values in one column of your data
+
+distmat = as.matrix(
+  
+  stats::dist(your_data$key_column,
+       
+       upper=TRUE,
+       
+       diag=TRUE)
+)
+
+# Now, take the "inverse" so we can use force-directed graph drawing
+
+
+dist_mi <- 1/distmat # "one over", as qgraph takes similarity matrices as input
+
+
+# In my data, I wanted to rename the columns with better labels
+# this is situational. I pulled in the names from a column in another dataframe
+# so only do this if you want different labels in your force-graph drawing
+
+
+data.table::setnames(as.data.frame(dist_mi),
+         
+         new = as.character((other_dataframe$new_variable_labels)))
+
+
+# finally, we just draw the force-directed graph drawing algorithm!
+
+qgraph::qgraph(dist_mi,
+       
+       layout = 'spring',
+       
+       vsize = 3)

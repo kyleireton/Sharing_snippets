@@ -46,3 +46,5 @@ qgraph::qgraph(dist_mi,
        layout = 'spring',
        
        vsize = 3)
+
+# you can play around with the number of data points you include! I found ~ 50 to be a happy maximum for interpretability.

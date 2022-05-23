@@ -1,17 +1,17 @@
 ---
-  title: "reading in most recent training"
+  title: "Reading in new batches of data"
 output:
   html_document:
   df_print: paged
 html_notebook:
   fig_height: 8
 ---
-  
-  CURRENT AS OF:
 
-21-07-27
-end of day
+This script is for reading in new batches of behavior experiment data (~ 30 .csv's per day).
 
+The details in cleaning and wrangling are highly specific to this behavior task so no need to worry about that. 
+
+I hope the general structure and some syntax within R will be useful to anyone attempting similar feats! 
 
 First, we read in the relevant libraries we need, and a couple extra functions I like to include. 
 

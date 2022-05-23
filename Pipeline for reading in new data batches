@@ -13,6 +13,8 @@ html_notebook:
 end of day
 
 
+First, we read in the relevant libraries we need, and a couple extra functions I like to include. 
+
 ```{r, include=FALSE}
 
 library(data.table)
@@ -49,7 +51,13 @@ get_CV = function(x) {
 }
 ```
 
-```{r Read ub rows from all runs, message=FALSE, results=FALSE, include=FALSE}
+Now, we read in all the data from a given directory ("/data"), and bind it into a single dataframe in R.
+
+This can be applied to any number of filed in one folder, and will be applied to all folders downstream of one directory folder!
+
+e.g., I can use this to read in all data from a single day, or point to a folder containing all folders for separate days.
+
+```{r Read in rows from all runs, message=FALSE, results=FALSE, include=FALSE}
 
 setwd("C:/Users/kylei/Desktop/data")
 
@@ -123,6 +131,13 @@ Master_df_pre_new = na.omit(Master_df_pre_new)
 
 ```
 
+I did some piping and wrangling to address what I needed with names of individual animal subjects, etc. 
+
+That sets up the "new" data, so now it is time to integrate it with the previous "old" data.
+
+The old data was processed in the same way. But you could do all of the data at once from scratch, if time is no issue. 
+
+
 ```{r}
 
 Master_df_pre_old =
@@ -141,8 +156,15 @@ write_csv(Master_df_pre, "C:/Users/kylei/Desktop/data/read_in_training/210727_C5
 
 ```
 
+Okay, now we have combined the old and the new data and saved as a fresh .csv for export!
 
-```{r Ripping all training stages, message=FALSE, include= FALSE}
+I will also process the data together for subsequent visualizaiton, and analysis. 
+
+This step is highly specific to my particlar task and data formatting, so no need to sweat details. 
+
+
+```{r Preparing all training stage data, message=FALSE, include= FALSE}
+
 # Pre staging rip -------------------------------------------------------------
 
 Master_df_response = Master_df_pre %>% 
@@ -177,7 +199,7 @@ Master_df_quickrip = Master_df_response %>%
   )
 ```
 
-For reward only phase: get correct, RT, RL for all
+For my task: reward phase only. Get correct, RT, RL for all
 
 ```{r}
 
@@ -244,6 +266,8 @@ Stage0_correct_RT_RL = rbind(
 
 ```
 
+For my task, getting different kinds of trial end conditions accounted for. 
+
 ```{r Ripping all, message=FALSE, include= FALSE}
 
 Master_df_target = Master_df_quickrip %>% 
@@ -277,6 +301,9 @@ Master_df_target = Master_df_quickrip %>%
 
 ```
 
+For my task, getting latency to retrieve reward.
+
+
 ```{r Ripping all, message=FALSE, include= FALSE}
 
 Master_df_RL = Master_df_quickrip %>% 
@@ -297,6 +324,8 @@ Master_df_RL = Master_df_quickrip %>%
   ungroup()
 ```
 
+For my task, combining reward latency with other responses. 
+
 ```{r Ripping all, message=FALSE, include= FALSE}
 
 Master_df_Correct_RL = rbind(
@@ -313,6 +342,8 @@ Master_df_Correct_RL = rbind(
   ungroup()
 
 ```
+
+For my task, getting premature response times. 
 
 ```{r Ripping all, message=FALSE, include= FALSE}
 
@@ -341,6 +372,8 @@ Master_df_premature = Master_df_quickrip %>%
 
 ```
 
+For my task, getting perseverative responses. 
+
 ```{r Ripping all, message=FALSE, include= FALSE}
 
 Master_df_persev = Master_df_quickrip %>% 
@@ -365,6 +398,8 @@ Master_df_persev = Master_df_quickrip %>%
 
 ```
 
+For my task, getting "timeout" responses. 
+
 ```{r Ripping all, message=FALSE, include= FALSE}
 
 Master_df_timeout = Master_df_quickrip %>% 
@@ -388,6 +423,10 @@ Master_df_timeout = Master_df_quickrip %>%
   ungroup() 
 
 ```
+
+For my task, finally pulling together all the different kinds of responses we needed to parse.
+
+Now the data will be in a tidy format and we can happily visualize / analyze away!!
 
 ```{r Ripping all rbound, message=FALSE}
 
@@ -434,3 +473,7 @@ write_csv(Master_df_flexC5,
         "C:/Users/kylei/Desktop/data/210727_C5_master_flexC5_crunched.csv")
 
 ```
+
+The last bit just exports our fully processed / wrangled data for follow-up analyses. 
+
+Feel free to reach out anytime to me at kyle.ireton@gmail.com

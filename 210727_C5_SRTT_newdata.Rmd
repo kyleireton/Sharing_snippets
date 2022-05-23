@@ -1,0 +1,436 @@
+---
+  title: "C5_SRTT ripflexC5 read in most recent training"
+output:
+  html_document:
+  df_print: paged
+html_notebook:
+  fig_height: 8
+---
+  
+  CURRENT AS OF:
+
+21-07-27
+end of day
+
+
+```{r, include=FALSE}
+
+library(data.table)
+library(tidyverse)
+library(TTR)
+library(zoo)
+
+read_plus = function(x) {
+  read_csv(x,
+           col_types = list(col_double(),
+                            col_character(),
+                            col_character())
+           ) %>% 
+    mutate(filename = x)
+}
+
+read_plus_skip1 = function(x) {
+  read_csv(x, skip = 1) %>% 
+    mutate(filename = x)
+}
+
+get_RT = function(x) {
+  ifelse(str_detect(x,"latency"),
+         as.numeric(paste(str_extract(x, "[^latency: ]+$"), sep = ""))/1000,
+         NA)
+}
+
+st.err = function(x) {
+  sd(x)/sqrt(length(x))
+}
+
+get_CV = function(x) {
+  sd(x) / mean(x)
+}
+```
+
+```{r Rip all rows from all runs, message=FALSE, results=FALSE, include=FALSE}
+
+setwd("C:/Users/kylei/Desktop/Zephyrus/_C5_SRTT")
+
+phantom_blastallcol =
+  list.files(path="C:/Users/kylei/Desktop/Zephyrus/_C5_SRTT/DATA",
+                                recursive = T,
+                                 pattern = "*..................csv",
+                              full.names = T) %>%
+  map_df(~read_plus(.)) 
+
+phantom_blaster = phantom_blastallcol %>%
+  select(-"0") %>% 
+  rename(Time_ms = "experiment name:",
+         k1 = kyle,
+         k2 = X3) 
+  
+phantom_blaster_df = phantom_blaster %>% 
+  mutate(Kyle = coalesce(k1, k2)) %>%  
+  select(-k1, -k2, filename, Time_ms, Kyle)  
+
+Master_df_pre_new = phantom_blaster_df %>% 
+  group_by(filename) %>%
+  mutate(
+    Task = substr(Kyle[c(1)], 1, n()),
+    Stage = case_when(
+      str_detect(Task, "_reward_") ~ 0,
+      str_detect(Task, "_stage1_") ~ 1,
+      str_detect(Task, "_stage2_") ~ 2,
+      str_detect(Task, "_stage3_") ~ 3,
+      str_detect(Task, "_stage4_") ~ 4,
+      str_detect(Task, "_stage5_") ~ 5,
+      str_detect(Task, "_stage6_") ~ 6
+    ),
+    Date = substr(Kyle[c(4)], 1, 10),
+    Box = substr(Kyle[c(1)], 1, 1),
+    
+    ID = Kyle[c(2)])
+
+Master_df_pre_new = Master_df_pre_new %>% 
+  
+  transmute( 
+    
+    Task = Task,
+    Stage = Stage,
+    Date = Date,
+    Box = Box,
+    ID = ID,
+    
+    GT = case_when(
+      ID == "1-2"|ID == "1-4"|ID == "8-4"|
+        ID == "12-4"|ID == "10-4"|ID == "13-2"|
+        ID == "13-5"|ID == "18-1"|ID == "18-3"|
+        ID == "16-4" ~ "W",
+      TRUE ~ "K"
+      ),
+    
+    Sex = case_when(
+      ID == "1-1"|ID == "1-2"|ID == "1-4"|
+        ID == "8-3"|ID == "8-4"|ID == "11-1"|
+        ID == "11-3"|ID == "13-1"|ID == "13-2"|
+        ID == "13-5"|ID == "18-1"|ID == "18-3"|
+        ID == "16-2"|ID == "16-4"|ID == "16-5" ~ "M",
+      TRUE ~ "F"
+      ),
+    
+    Timestamp = as.numeric(paste(Time_ms))/60000,
+    Kyle = Kyle
+  ) %>% ungroup() 
+
+Master_df_pre_new = na.omit(Master_df_pre_new)
+
+```
+
+```{r}
+
+Master_df_pre_old =
+  read_csv("C:/Users/kylei/Desktop/Zephyrus/_C5_SRTT/read_in_training/210726_C5_SRTT_allrows_old.csv")
+
+Master_df_pre = rbind(
+  Master_df_pre_old,
+  Master_df_pre_new
+)
+
+Master_df_pre$ID = str_replace(Master_df_pre$ID, "5-4", "12-4")
+
+Master_df_pre$ID = str_replace(Master_df_pre$ID, "27-4", "27-3")
+
+write_csv(Master_df_pre, "C:/Users/kylei/Desktop/Zephyrus/_C5_SRTT/read_in_training/210727_C5_SRTT_allrows_old.csv")
+
+```
+
+
+```{r Ripping all training stages, message=FALSE, include= FALSE}
+# Pre staging rip -------------------------------------------------------------
+
+Master_df_response = Master_df_pre %>% 
+  
+  group_by(filename) %>% 
+  filter(str_detect(Kyle, "^poke_[1-6]$")|
+           
+           str_detect(Kyle, "light")|
+           str_detect(Kyle, "Correct_latency")|
+           str_detect(Kyle, "Reward_latency")|
+           
+           str_detect(Kyle, "Incorrect_response")|
+           str_detect(Kyle, "Incorrect_latency")|
+           str_detect(Kyle, "omission")|
+           
+           str_detect(Kyle, "ITI$")|
+           str_detect(Kyle, "Premature_response")|
+           str_detect(Kyle, "Premature_latency")|
+           str_detect(Kyle, "perseverate")|
+           str_detect(Kyle, "attempts_dur_penalty")
+  )
+
+Master_df_quickrip = Master_df_response %>% 
+  mutate(
+    Poke = ifelse(str_detect(Kyle, "^poke_[1-6]$"),
+                  substr(Kyle, 6, 6),
+                  NA),
+    Light = ifelse(str_detect(Kyle, "^light[1-5]$"),
+                   substr(Kyle, 6, 6),
+                   NA),
+    Latency = get_RT(Kyle)
+  )
+```
+
+For reward only phase: get correct, RT, RL for all
+
+```{r}
+
+Stage0_only = Master_df_pre %>%
+  group_by(filename) %>%
+  filter(Stage == 0) %>%
+  filter(
+    str_detect(Kyle, "taste_task")|
+    str_detect(Kyle, "^poke_[1-6]$")|
+    str_detect(Kyle, "perseverate")|
+    str_detect(Kyle, "Correct_response")|
+    str_detect(Kyle, "Reward$")
+         ) %>%
+  mutate(Target = 6)
+
+Stage0_correct = Stage0_only %>%
+  filter(
+    str_detect(Kyle, "taste_task")|
+    str_detect(Kyle, "^poke_[1-5]$")|
+    str_detect(Kyle, "Correct_response")|
+    str_detect(Kyle, "Reward$")
+  ) %>%
+  mutate(
+    Response = case_when(
+      Kyle == "Correct_response" ~ "Correct"),
+    Poke = case_when(
+      Response == "Correct" ~ substr(dplyr::lag(Kyle, n=1, default = NA), 6, 6))
+    )
+
+Stage0_correct_RT = Stage0_correct %>%
+  filter(Response == "Correct"|
+           Kyle == "taste_task") %>%
+  group_by(filename) %>%
+  arrange(filename, Timestamp) %>%
+  mutate(RT = Timestamp - dplyr::lag(Timestamp, n=1, default = NA)) %>%
+  filter(Response == "Correct")
+
+
+Stage0_correct_RL = Stage0_correct %>%
+  filter(Response == "Correct"|
+           Kyle == "Reward") %>%
+  group_by(filename) %>%
+  arrange(filename, Timestamp) %>%
+  mutate(Response = case_when(
+            Kyle == "Reward" ~ "Reward"
+              ),
+         RT = Timestamp - dplyr::lag(Timestamp, n=1, default = NA)) %>%
+  filter(Response == "Reward")
+
+
+Stage0_correct_RT_RL = rbind(
+  Stage0_correct_RT,
+  Stage0_correct_RL
+) %>%
+  group_by(filename) %>%
+  arrange(filename, Timestamp) %>%
+  mutate(RL = dplyr::lead(RT, n=1, default = NA),
+         Port = Poke,
+         Target = 6) %>%
+  filter(Response == "Correct") %>%
+  select(-Poke, -Kyle) %>%
+  ungroup()
+
+
+```
+
+```{r Ripping all, message=FALSE, include= FALSE}
+
+Master_df_target = Master_df_quickrip %>% 
+  filter(str_detect(Kyle, "poke_[1-5]")|
+           !is.na(Light)|
+           str_detect(Kyle, "omission|Incorrect|Reward")) %>% 
+  group_by(filename) %>% 
+  arrange(filename, Timestamp) %>% 
+  mutate(
+    Response = case_when(
+      Light == dplyr::lead(Poke, n=1, default = NA) ~ "Correct",
+      Light != dplyr::lead(Poke, n=1, default = NA) ~ "Incorrect",
+      dplyr::lead(Kyle, n=1, default = NA) == "omission" ~ "Omission"
+    ),
+    RT = case_when(
+      Response == "Correct" ~ dplyr::lead(Timestamp, n=1, default = NA) - Timestamp,
+      Response == "Incorrect" ~ dplyr::lead(Timestamp, n=1, default = NA) - Timestamp,
+      Response == "Omission" ~ 0
+    ),
+    Target = Light,
+    Port = case_when(
+      Response == "Correct"|Response == "Incorrect" ~ as.numeric(dplyr::lead(Poke, n=1, default = NA)),
+      Response == "Omission" ~ 0
+    )
+  ) %>% 
+  filter(Response == "Correct"|
+           Response == "Incorrect"|
+           Response == "Omission") %>% 
+  select(-c(10:13)) %>% 
+  ungroup()
+
+```
+
+```{r Ripping all, message=FALSE, include= FALSE}
+
+Master_df_RL = Master_df_quickrip %>% 
+  filter(!is.na(Light)|
+           str_detect(Kyle, "Reward")) %>% 
+  group_by(filename) %>% 
+  arrange(filename, Timestamp) %>% 
+  mutate(
+    Reward = dplyr::lead(Kyle, n=1),
+    Response = substr(Reward, 1, 6),
+    RT = get_RT(Reward),
+    Target = Light,
+    Port = 6,
+  ) %>% 
+  filter(!is.na(Target),
+         str_detect(Response, "Reward")) %>% 
+  select(-c(10:13), -Reward) %>%
+  ungroup()
+```
+
+```{r Ripping all, message=FALSE, include= FALSE}
+
+Master_df_Correct_RL = rbind(
+  Master_df_target,
+  Master_df_RL
+) %>% 
+  group_by(filename) %>% 
+  arrange(filename, Timestamp) %>%
+  mutate(RL = case_when(
+    dplyr::lead(Response, n=1) == "Reward" ~ dplyr::lead(RT),
+    dplyr::lead(Response, n=1) != "Reward" ~ 0
+  )) %>% 
+  filter(Response != "Reward") %>% 
+  ungroup()
+
+```
+
+```{r Ripping all, message=FALSE, include= FALSE}
+
+Master_df_premature = Master_df_quickrip %>% 
+  filter(str_detect(Kyle, "ITI")|
+           str_detect(Kyle, "poke_[1-5]")|
+           str_detect(Kyle, "Premature_response")) %>% 
+  group_by(filename) %>% 
+  arrange(filename, Timestamp) %>% 
+  mutate(
+    Response = case_when(
+      Kyle == "ITI" & dplyr::lead(Kyle, n=2) == "Premature_response" ~ "Premature"
+    ),
+    RT = case_when(
+      Response == "Premature" ~ dplyr::lead(Timestamp, n=2) - Timestamp,
+    ),
+    Target = 0,
+    Port = case_when(
+      Response == "Premature" ~ as.numeric(dplyr::lead(Poke, n=1, default = NA))
+    ),
+    RL = 0
+  ) %>% 
+  filter(Response == "Premature") %>% 
+  select(-c(10:13)) %>% 
+  ungroup()
+
+```
+
+```{r Ripping all, message=FALSE, include= FALSE}
+
+Master_df_persev = Master_df_quickrip %>% 
+  filter(str_detect(Kyle, "poke_[1-5]")|
+           str_detect(Kyle, "perseverate")) %>% 
+  group_by(filename) %>% 
+  arrange(filename, Timestamp) %>% 
+  mutate(
+    Response = case_when(
+      Kyle == "perseverate" ~ "Perseverative"
+    ),
+    RT = 0,
+    Target = 0,
+    Port = case_when(
+      Response == "Perseverative" ~ as.numeric(dplyr::lag(Poke, n=1, default = NA))
+    ),
+    RL = 0
+  ) %>% 
+  filter(Response == "Perseverative") %>% 
+  select(-c(10:13)) %>% 
+  ungroup()
+
+```
+
+```{r Ripping all, message=FALSE, include= FALSE}
+
+Master_df_timeout = Master_df_quickrip %>% 
+  filter(str_detect(Kyle, "poke_[1-5]")|
+           str_detect(Kyle, "attempts_dur_penalty")) %>% 
+  group_by(filename) %>% 
+  arrange(filename, Timestamp) %>% 
+  mutate(
+    Response = case_when(
+      Kyle == "attempts_dur_penalty" ~ "Timeout"
+    ),
+    RT = 0,
+    Target = 0,
+    Port = case_when(
+      Response == "Timeout" ~ as.numeric(dplyr::lag(Poke, n=1, default = NA))
+    ),
+    RL = 0
+  ) %>% 
+  filter(Response == "Timeout") %>% 
+  select(-c(10:13)) %>% 
+  ungroup() 
+
+```
+
+```{r Ripping all rbound, message=FALSE}
+
+Master_df_flexC5 = rbind(
+  Master_df_Correct_RL,
+  Master_df_premature,
+  Master_df_persev,
+  Master_df_timeout,
+  Stage0_correct_RT_RL # adding in for Reward phase correct pokes
+    ) %>% 
+  
+  arrange(filename, Timestamp) %>%
+
+  group_by(Stage, ID) %>% 
+    
+  mutate(Session_n = match(Date, unique(Date))) %>%
+    
+  ungroup() %>%
+  
+  group_by(Stage, ID, Date) %>%
+  
+  mutate(
+    Trial_case = case_when(
+      Target > 0 ~ 1,
+      Target == 0 ~ 0
+    ),
+    Trials = cumsum(Trial_case)
+  ) %>% 
+  
+  mutate(Segment = case_when(
+    Timestamp < 10 ~ 1,
+    Timestamp > 10 & Timestamp < 20 ~ 2,
+    Timestamp > 20 ~ 3
+  )) %>% 
+  
+  ungroup() %>% 
+  
+  select(Task, Stage, Date, Session_n, ID, GT, Sex,
+         Timestamp, Segment, Response, Trials,
+         Port, Target, RT, RL, filename,
+         -Box, -Trial_case)
+
+write_csv(Master_df_flexC5,
+        "C:/Users/kylei/Desktop/Zephyrus/_C5_SRTT/read_in_training/210727_C5_master_flexC5_crunched.csv")
+
+```

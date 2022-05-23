@@ -1,5 +1,5 @@
 ---
-  title: "C5_SRTT ripflexC5 read in most recent training"
+  title: "reading in most recent training"
 output:
   html_document:
   df_print: paged
@@ -49,12 +49,12 @@ get_CV = function(x) {
 }
 ```
 
-```{r Rip all rows from all runs, message=FALSE, results=FALSE, include=FALSE}
+```{r Read ub rows from all runs, message=FALSE, results=FALSE, include=FALSE}
 
-setwd("C:/Users/kylei/Desktop/Zephyrus/_C5_SRTT")
+setwd("C:/Users/kylei/Desktop/data")
 
 phantom_blastallcol =
-  list.files(path="C:/Users/kylei/Desktop/Zephyrus/_C5_SRTT/DATA",
+  list.files(path="C:/Users/kylei/Desktop/data",
                                 recursive = T,
                                  pattern = "*..................csv",
                               full.names = T) %>%
@@ -126,7 +126,7 @@ Master_df_pre_new = na.omit(Master_df_pre_new)
 ```{r}
 
 Master_df_pre_old =
-  read_csv("C:/Users/kylei/Desktop/Zephyrus/_C5_SRTT/read_in_training/210726_C5_SRTT_allrows_old.csv")
+  read_csv("C:/Users/kylei/Desktop/data/read_in_training/210726_C5_SRTT_allrows_old.csv")
 
 Master_df_pre = rbind(
   Master_df_pre_old,
@@ -137,7 +137,7 @@ Master_df_pre$ID = str_replace(Master_df_pre$ID, "5-4", "12-4")
 
 Master_df_pre$ID = str_replace(Master_df_pre$ID, "27-4", "27-3")
 
-write_csv(Master_df_pre, "C:/Users/kylei/Desktop/Zephyrus/_C5_SRTT/read_in_training/210727_C5_SRTT_allrows_old.csv")
+write_csv(Master_df_pre, "C:/Users/kylei/Desktop/data/read_in_training/210727_C5_SRTT_allrows_old.csv")
 
 ```
 
@@ -431,6 +431,6 @@ Master_df_flexC5 = rbind(
          -Box, -Trial_case)
 
 write_csv(Master_df_flexC5,
-        "C:/Users/kylei/Desktop/Zephyrus/_C5_SRTT/read_in_training/210727_C5_master_flexC5_crunched.csv")
+        "C:/Users/kylei/Desktop/data/210727_C5_master_flexC5_crunched.csv")
 
 ```
